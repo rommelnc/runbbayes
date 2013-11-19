@@ -1,0 +1,117 @@
+net
+{
+     node_size = (50 50);
+     name = "Chest-clinic";
+     tree = "(Positive X-ray?,Has bronchitis,Dyspnoea?,Visit to Asia?,Smoker?,Has lung cancer,Has tuberculosis,Tuberculosis or cancer)";
+     UnBBayes_Color_Probabilistic_Description = "-256";
+     UnBBayes_Color_Probabilistic_Explanation = "-16711936";
+     UnBBayes_Color_Utility = "-16711681";
+     UnBBayes_Color_Decision = "-14336";
+}
+
+node X
+{
+     label = "Positive X-ray?";
+     position = (28 29);
+     states = ("yes" "no");
+}
+
+node B
+{
+     label = "Has bronchitis";
+     position = (400 200);
+     states = ("yes" "no");
+}
+
+node D
+{
+     label = "Dyspnoea?";
+     position = (250 35);
+     states = ("yes" "no");
+}
+
+node A
+{
+     label = "Visit to Asia?";
+     position = (35 301);
+     states = ("yes" "no");
+}
+
+node S
+{
+     label = "Smoker?";
+     position = (299 301);
+     states = ("yes" "no");
+}
+
+node L
+{
+     label = "Has lung cancer";
+     position = (200 200);
+     states = ("yes" "no");
+}
+
+node T
+{
+     label = "Has tuberculosis";
+     position = (35 200);
+     states = ("yes" "no");
+}
+
+node E
+{
+     label = "Tuberculosis or cancer";
+     position = (99 101);
+     states = ("yes" "no");
+}
+
+potential (X | E)
+{
+ data = (( 0.98 0.02 )
+( 0.05 0.95 ));
+}
+
+potential (B | S)
+{
+ data = (( 0.6 0.4 )
+( 0.3 0.7 ));
+}
+
+potential (D | B E)
+{
+ data = ((( 0.9 0.1 )
+( 0.8 0.2 ))
+(( 0.7 0.3 )
+( 0.1 0.9 )));
+}
+
+potential (A)
+{
+ data = ( 0.01 0.99 );
+}
+
+potential (S)
+{
+ data = ( 0.5 0.5 );
+}
+
+potential (L | S)
+{
+ data = (( 0.1 0.9 )
+( 0.01 0.99 ));
+}
+
+potential (T | A)
+{
+ data = (( 0.05 0.95 )
+( 0.01 0.99 ));
+}
+
+potential (E | T L)
+{
+ data = ((( 1.0 0.0 )
+( 1.0 0.0 ))
+(( 1.0 0.0 )
+( 0.0 1.0 )));
+}
+

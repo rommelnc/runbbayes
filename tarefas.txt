@@ -1,0 +1,40 @@
+Tarefas a serem realizadas
+
+1. Criar a função createNode(formula, values, states) similar a funcao cptable() do pacote gRain.
+Ex: formula => consumedAlcohol | nightType : suspicious
+Ex: values => array de floats => c(0.95, 0.05) * Fazer sempre soma de N a N , onde N é a quantidade de estados, para verificar se essa soma vale 1.
+Ex: states => array de strings => c("yes", "no")
+
+
+function createNode <- function( ;;) {
+
+Cria no consumedAlcohol
+Seta as probabilidades
+Seta os estados
+
+Procura nó nightType, cria edge de NightType para o consumedAlcohol
+Faz o mesmo para suspicious
+
+
+Retorna a rede
+}
+
+
+
+
+2. Criar a funçao createNetwork(nodes) similar ao compileCPT
+Recebe uma lista de nodes: list(A, B, C, D), junta os nós e retorna uma rede (network)
+
+Itera sobre todos os nós. Cada vez que achar um pai, cria um edge do pai para o filho.
+Chama as funções do unbbayes pra criar o modelo passando essa rede como parametro.
+Retorna o modelo.
+
+
+3. Criar a função queryNetwork(network, evento, evidencias) similar ao cpquery do bnlearn
+cpquery(net.disc, (C=="Sim"), (N=="Feriado" & S=="Sim" & T1=="Positivo"))
+evento é uma classe do tipo (variavel == "Estado")
+evidencia é uma lista de eventos com &  
+
+
+4. Definir as classes de objetos que serão usadas por todas essas outras classes, como por exemplo evento, evidências, node.. (Algumas dessas classes já estão prontas no UnbBayes)
+
