@@ -377,3 +377,122 @@ removeNode <- function(network, name) {
 
 
 
+#adiciona tabela de probabilidade no no
+addcpt <- function(node) {
+  #verifica a quantidade de pais
+  numparents = length(node$parents)
+  #verifica a quantidade de estados
+  numstates = length(node$states)
+  #monta a matriz de prob        
+  return(matrix(node$prob, numstates, 2^numparents))
+}
+
+#Recebe uma lista de nos como parametro e cria as relacoes (edge).
+createNetwork <- function(nodesList) {
+  
+  #Criar uma rede
+  attach( javaImport( "unbbayes.prs" ), pos = 2 , name = "java:unbbayes.prs.bn" )
+  attach( javaImport( "unbbayes.prs.bn" ), pos = 3 , name = "java:unbbayes.prs.bn" )
+  
+  net = new(ProbabilisticNetwork, "Net")
+  
+  #list("nome no", c("filho1, filho2"), probabilidade(pai, filho1, filho2), "estado")
+  
+  #Iteracao para pegar os elementos da lista e criar a rede
+  for (i in 1:length(nodesList)) {
+    node = nodesList[i]
+    
+    #Verifica se o nó está na rede
+    if (net$getNode(node$node) == NULL) {                
+      node$cpt = addcpt(node)
+      net$addNode(node)
+    }
+    #verifica se o no tem pais
+    if(node$parents != NULL) {
+      parents = node$parents        
+      
+      #loop com todos os pais ligados ao no
+      for(j in 1:length(node$parents)) {
+        parentName = parents[j]
+        #verifica se o pai do no esta na rede
+        if (net$getNode(parentName) == NULL) {
+          k = i + 1
+          #caso o pai do no nao esteja na lista entao havera um loop que procurara na
+          #lista de nos o pai
+          while (k < length(nodesList[]) && achou == FALSE) {
+            if(nodesList[i+1]$node == parentsName) {
+              nodePai = nodesList[i+1]
+              achou = TRUE
+            } else {
+              k++
+            }
+          }            
+          nodePai$cpt = addcpt(nodePai)            
+          net$addNode(nodePai)
+          net$addEdge(new(Edge, nodePai, node))
+          #caso o pai do no esteja na rede    
+        } else {
+          nodePai = net$getNode(parentName)            
+          net$addEdge(new(Edge, nodePai, node))
+        } 
+      }
+    }
+  }
+  
+  #CPT (Tabela de probabilidade condicional)
+  #1- verificar quantas probabilidades existem na lista passada
+  #2- montar matriz conforme o numero de probabilidades
+  
+  
+  
+  
+  
+  # Ideia Inicial -----------------------------------------------------------
+  
+  #Verifica se o nó tem filho se sim, coloca o nó filho em um nó auxiliar
+  if ("node tem filho") {
+    auxNode = "filho"
+    #Verifica se o nó pai existe na rede, se não existir, adiciona os dois nós à rede e cria a rede
+    if ("node não existe") {
+      net$addNode(node)
+      net$addNode(auxNode)
+      net$addEdge(new(Edge, node, auxNode))
+      #Se o nó pai existir adiciona o nó filho à rede e cria a edge
+    } else {
+      node = "no pai da rede"
+      net$addNode(auxNode)
+      net$addEdge(new(Edge, noPai, auxNode))
+    }
+    #deletar node
+    #Verifica se o nó filho tem pai se sim, coloca o nó pai em node
+    if("auxNode tem pai") {
+      node = "pai"
+      #Verifica se o nó pai existe na rede, se não existir, adiciona os dois nós à rede e cria a rede
+      if ("node não existe") {
+        net$addNode(node)
+        net$addNode(auxNode)
+        net$addEdge(new(Edge, node, auxNode))
+        #Se o nó pai existir adiciona o nó filho à rede e cria a edge
+      } else {
+        noPai = "no pai da rede"
+        net$addNode(auxNode)
+        net$addEdge(new(Edge, noPai, auxNode))   
+      }   
+    }
+    #Se o nó não tiver filho, apenas adiciona ele à rede  
+  } else {
+    #Adicionar o nó à rede
+    net$addNode(node)
+  }
+}
+#Retorna a rede
+return (net)  
+
+}
+
+#Criar as funções de:
+#Verificar se tem Filho;
+#Verificar se tem Pai;
+#Buscar nó na rede.
+
+d = list(node="asia", parents = c(), prob=c(1,0), states = c("yes", "no"))
