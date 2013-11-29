@@ -167,5 +167,6 @@ queryNetwork <- function(network, event, evidences) {
   }
   
   
+  
   return(posteriorProb)
 }
