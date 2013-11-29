@@ -7,8 +7,8 @@ helloUnBBayes <- function() {
   ## .xml
   #   io = .jnew("unbbayes/io/XMLBIFIO")
   graph = io$load(file) 
-  net = .jcast(graph, "unbbayes/prs/bn/ProbabilisticNetwork")
   
+  net
   attach( javaImport( "unbbayes.prs" ), pos = 2 , name = "java:unbbayes.prs.bn" )
   attach( javaImport( "unbbayes.prs.bn" ), pos = 3 , name = "java:unbbayes.prs.bn" )
   
@@ -394,34 +394,36 @@ createNetwork <- function(nodesList) {
   attach( javaImport( "unbbayes.prs" ), pos = 2 , name = "java:unbbayes.prs.bn" )
   attach( javaImport( "unbbayes.prs.bn" ), pos = 3 , name = "java:unbbayes.prs.bn" )
   
-  net = new(ProbabilisticNetwork, "Net")
+  
+  #net = new(ProbabilisticNetwork)
+  net = .jcast(graph, "unbbayes/prs/bn/ProbabilisticNetwork")
   
   #list("nome no", c("filho1, filho2"), probabilidade(pai, filho1, filho2), "estado")
   
   #Iteracao para pegar os elementos da lista e criar a rede
   for (i in 1:length(nodesList)) {
     node = nodesList[i]
-    
+    #tem que arrumar!!! acima
     #Verifica se o nó está na rede
-    if (net$getNode(node$node) == NULL) {                
+    if (length(net$getNode(node[[i]]$node)) > 0) {     
       node$cpt = addcpt(node)
       net$addNode(node)
     }
     #verifica se o no tem pais
-    if(node$parents != NULL) {
-      parents = node$parents        
+    if(length(node[[i]]$parents) > 0) {
+      parents = node[[i]]$parents        
       
       #loop com todos os pais ligados ao no
-      for(j in 1:length(node$parents)) {
+      for(j in 1:length(node[[i]]$parents)) {
         parentName = parents[j]
         #verifica se o pai do no esta na rede
-        if (net$getNode(parentName) == NULL) {
+        if (length(net$getNode(parentName)) > 0) {
           k = i + 1
           #caso o pai do no nao esteja na lista entao havera um loop que procurara na
           #lista de nos o pai
           while (k < length(nodesList[]) && achou == FALSE) {
-            if(nodesList[i+1]$node == parentsName) {
-              nodePai = nodesList[i+1]
+            if(nodesList[[i+1]]$node == parentsName) {
+              nodePai = nodesList[[i+1]]
               achou = TRUE
             } else {
               k =k +1
