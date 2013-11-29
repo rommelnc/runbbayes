@@ -424,7 +424,7 @@ createNetwork <- function(nodesList) {
               nodePai = nodesList[i+1]
               achou = TRUE
             } else {
-              k++
+              k =k +1
             }
           }            
           nodePai$cpt = addcpt(nodePai)            
@@ -438,7 +438,7 @@ createNetwork <- function(nodesList) {
       }
     }
   }
-  
+} 
   #CPT (Tabela de probabilidade condicional)
   #1- verificar quantas probabilidades existem na lista passada
   #2- montar matriz conforme o numero de probabilidades
@@ -447,52 +447,4 @@ createNetwork <- function(nodesList) {
   
   
   
-  # Ideia Inicial -----------------------------------------------------------
   
-  #Verifica se o nó tem filho se sim, coloca o nó filho em um nó auxiliar
-  if ("node tem filho") {
-    auxNode = "filho"
-    #Verifica se o nó pai existe na rede, se não existir, adiciona os dois nós à rede e cria a rede
-    if ("node não existe") {
-      net$addNode(node)
-      net$addNode(auxNode)
-      net$addEdge(new(Edge, node, auxNode))
-      #Se o nó pai existir adiciona o nó filho à rede e cria a edge
-    } else {
-      node = "no pai da rede"
-      net$addNode(auxNode)
-      net$addEdge(new(Edge, noPai, auxNode))
-    }
-    #deletar node
-    #Verifica se o nó filho tem pai se sim, coloca o nó pai em node
-    if("auxNode tem pai") {
-      node = "pai"
-      #Verifica se o nó pai existe na rede, se não existir, adiciona os dois nós à rede e cria a rede
-      if ("node não existe") {
-        net$addNode(node)
-        net$addNode(auxNode)
-        net$addEdge(new(Edge, node, auxNode))
-        #Se o nó pai existir adiciona o nó filho à rede e cria a edge
-      } else {
-        noPai = "no pai da rede"
-        net$addNode(auxNode)
-        net$addEdge(new(Edge, noPai, auxNode))   
-      }   
-    }
-    #Se o nó não tiver filho, apenas adiciona ele à rede  
-  } else {
-    #Adicionar o nó à rede
-    net$addNode(node)
-  }
-}
-#Retorna a rede
-return (net)  
-
-}
-
-#Criar as funções de:
-#Verificar se tem Filho;
-#Verificar se tem Pai;
-#Buscar nó na rede.
-
-d = list(node="asia", parents = c(), prob=c(1,0), states = c("yes", "no"))
