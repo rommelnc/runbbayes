@@ -1,6 +1,7 @@
 import("rJava")
 export("helloUnBBayes")
 export("queryNetwork")
+export("queryNetworkWithEvidences")
 export("createNodeInfo")
 export("compileNetwork")
 export("setEvidence")
