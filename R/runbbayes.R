@@ -84,11 +84,15 @@ helloUnBBayes <- function() {
   }
   posterior
   
+  detach( javaImport( "unbbayes.prs" ), pos = 2 , name = "java:unbbayes.prs.bn" )
+  detach( javaImport( "unbbayes.prs.bn" ), pos = 3 , name = "java:unbbayes.prs.bn" )
+  
   return(rbind(prior, posterior))
 }
 
 
 queryNetworkWithEvidences <- function(net, event, evidences) {
+    
   #network: network object
   #event: array of two strings (tuple)
   #evidences: list of arrays of two strings (list of tuples)
@@ -98,78 +102,48 @@ queryNetworkWithEvidences <- function(net, event, evidences) {
   
   network = net$network
   
-  if (class(event) != "character") {
-    stop("Parameter 'event' must be a tuple of strings: c(\"A\", \"yes\")")
-  }
   
   if (class(evidences) != "list") {
     stop("Parameter 'evidences' must be a list of tuples: list(c(\"E\", \"no\"), c(\"D\", \"yes\"))")
   }
   
+  #save the actual evidences of the network
+  findingNodes = list()
+  for (index in 1:network$getNodeCount()-1L) {
+    node = network$getNodeAt(index)
+    node = .jcast(node, "unbbayes/prs/bn/ProbabilisticNode")
+    
+    if (node$hasEvidence() == TRUE) {
+      findingNodes[[node$getName]] = node$getEvidence()
+    }
+  }
+
+
   
-  ## reset any previous evidences
-  network$resetEvidences()
+  network = resetEvidences(net)$network
   
-  ## recompile network to force evidences to be reset
-  algorithm = new(JunctionTreeAlgorithm)
-  algorithm$setNetwork(network)
-  algorithm$run()
+  network = setEvidence(net, evidences, propagate = TRUE)$network
+  
+  net$network = network
+  
+  query = queryNetwork(net, event)
   
   
+  #retrieve the evidences of the network
+  network = resetEvidences(net)$network
   
-  ## insert evidence (finding) to each of the nodes of "network" in evidences list  
-  
-  ## iterate over each evidence (finding)
-  if (length(evidences) > 0) {
-    for (evidenceIndex in 1:length(evidences)) {
-      ## find the node of this evidence
-      findingNode = .jcast(network$getNode(evidences[[evidenceIndex]][1]), "unbbayes/prs/bn/ProbabilisticNode")
-      
-      ##iterate over the states in findingNode and try to find the informed state
-      foundState = FALSE
-      for (stateIndex in 1:findingNode$getStatesSize()-1L) {
-        if (findingNode$getStateAt(stateIndex) == evidences[[evidenceIndex]][2]) {
-          foundState = TRUE
-          findingNode$addFinding(stateIndex)
-        }
-      }
-      #if no state was found for the findingNode throw an error
-      if (foundState == FALSE) {
-        stop(paste("State '", evidences[[evidenceIndex]][2],"' not found in Node '", evidences[[evidenceIndex]][1], "'.", sep = ""))
-      }
-      
+  if (length(findingNodes > 0)) {
+    for (i in 1:length(findingNodes)) {
+      node = network$getNode(attributes(findingNodes[i])$names)
+      node = .jcast(node, "unbbayes/prs/bn/ProbabilisticNode")
+      node.addFinding(findingsNodes[[i]])
     }
   }
   
+  net$network=network
   
   
-  ## propagate evidence
-  network$updateEvidences()
-  
-  
-  ## find the posterior probability for the informed eventNode 
-  
-  # initialize variable
-  posteriorProb = 0.0
-  # find the event node in the network
-  eventNode = network$getNode(event[1])
-  
-  ##iterate over the states in eventNode and try to find the informed state
-  foundState = FALSE
-  for (stateIndex in 1:eventNode$getStatesSize()-1L) {
-    if (eventNode$getStateAt(stateIndex) == event[2]) {
-      foundState = TRUE
-      posteriorProb = round(.jcast(eventNode, "unbbayes/prs/bn/ProbabilisticNode")$getMarginalAt(stateIndex), 4)
-    }
-  }
-  
-  #if no state was found for the evenNode throw an error
-  if (foundState == FALSE) {
-    stop(paste("State '",event[2],"' not found in Node '", event[1], "'.", sep=""))
-  }
-  
-  class(posteriorProb) = "query"
-  return(posteriorProb)
+  return(query)
 }
 
 
@@ -182,11 +156,21 @@ hasNode <- function(event, name) {
   return(FALSE)
 }
 
-queryNetwork <- function(net, event = c(), evidences = list()) {
+getState <- function(event, name) {
+  for (i in 1:length(event)) {
+    if (event[[i]][1] == name) {
+      return(event[[i]][2])
+    }
+  }
+  return("")
+}
+
+queryNetwork <- function(net, event = c()) {
   
   if (length(event) > 0 && class(event) == "character") {
-    return(queryNetworkWithEvidences(net, event, evidences))
+    event = list(event)
   }
+  
   network = net$network
   marginals = list()
   for (index in 1:network$getNodeCount()-1L) {
@@ -199,7 +183,7 @@ queryNetwork <- function(net, event = c(), evidences = list()) {
     if (class(event) == "list") {
       #check if statesProb is included in event before adding it to marginals
       if (hasNode(event, node$getName())) {
-        marginals[[node$getName()]] = statesProb
+        marginals[[node$getName()]] = statesProb[getState(event, node$getName())]
       }
     }
     else {
@@ -257,6 +241,10 @@ compileNetwork <- function(network) {
   algorithm$setNetwork(net)
   algorithm$run()
   network$network = net
+  
+  detach( javaImport( "unbbayes.prs" ), pos = 2 , name = "java:unbbayes.prs.bn" )
+  detach( javaImport( "unbbayes.prs.bn" ), pos = 3 , name = "java:unbbayes.prs.bn" )
+  
   return(network)
 }
 
@@ -271,7 +259,6 @@ setEvidence <- function(network, evidences, propagate = FALSE) {
   
   if (length(evidences) > 0) {
     for (evidenceIndex in 1:length(evidences)) {
-      print(evidenceIndex)
       ## find the node of this evidence
       findingNode = .jcast(net$getNode(evidences[[evidenceIndex]][1]), "unbbayes/prs/bn/ProbabilisticNode")
       ##iterate over the states in findingNode and try to find the informed state
@@ -321,6 +308,9 @@ resetEvidences <- function(network) {
   algorithm$setNetwork(net)
   algorithm$run()
   network$network = net
+  
+  detach( javaImport( "unbbayes.prs" ), pos = 2 , name = "java:unbbayes.prs.bn" )
+  detach( javaImport( "unbbayes.prs.bn" ), pos = 3 , name = "java:unbbayes.prs.bn" )
   return(network)
 }
 
@@ -354,6 +344,8 @@ addNode <- function(network, nodes, prob, states) {
   network$network = net
   net = compileNetwork(network)
   
+  detach( javaImport( "unbbayes.prs" ), pos = 2 , name = "java:unbbayes.prs.bn" )
+  detach( javaImport( "unbbayes.prs.bn" ), pos = 3 , name = "java:unbbayes.prs.bn" )
   return (net)
   
 }
@@ -371,6 +363,8 @@ removeNode <- function(network, name) {
   network$network = net
   network = compileNetwork(network)
   
+  detach( javaImport( "unbbayes.prs" ), pos = 2 , name = "java:unbbayes.prs.bn" )
+  detach( javaImport( "unbbayes.prs.bn" ), pos = 3 , name = "java:unbbayes.prs.bn" )
   return (network)
   
 }
