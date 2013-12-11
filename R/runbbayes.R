@@ -8,9 +8,11 @@ helloUnBBayes <- function() {
   #   io = .jnew("unbbayes/io/XMLBIFIO")
   graph = io$load(file) 
   
-  net
+  net = .jcast(graph, "unbbayes/prs/bn/ProbabilisticNetwork")
   attach( javaImport( "unbbayes.prs" ), pos = 2 , name = "java:unbbayes.prs.bn" )
   attach( javaImport( "unbbayes.prs.bn" ), pos = 3 , name = "java:unbbayes.prs.bn" )
+  
+  
   
   
   ## adding a new node manually
@@ -84,15 +86,11 @@ helloUnBBayes <- function() {
   }
   posterior
   
-  detach( javaImport( "unbbayes.prs" ), pos = 2 , name = "java:unbbayes.prs.bn" )
-  detach( javaImport( "unbbayes.prs.bn" ), pos = 3 , name = "java:unbbayes.prs.bn" )
-  
   return(rbind(prior, posterior))
 }
 
 
 queryNetworkWithEvidences <- function(net, event, evidences) {
-    
   #network: network object
   #event: array of two strings (tuple)
   #evidences: list of arrays of two strings (list of tuples)
@@ -102,48 +100,78 @@ queryNetworkWithEvidences <- function(net, event, evidences) {
   
   network = net$network
   
+  if (class(event) != "character") {
+    stop("Parameter 'event' must be a tuple of strings: c(\"A\", \"yes\")")
+  }
   
   if (class(evidences) != "list") {
     stop("Parameter 'evidences' must be a list of tuples: list(c(\"E\", \"no\"), c(\"D\", \"yes\"))")
   }
   
-  #save the actual evidences of the network
-  findingNodes = list()
-  for (index in 1:network$getNodeCount()-1L) {
-    node = network$getNodeAt(index)
-    node = .jcast(node, "unbbayes/prs/bn/ProbabilisticNode")
-    
-    if (node$hasEvidence() == TRUE) {
-      findingNodes[[node$getName]] = node$getEvidence()
+  
+  ## reset any previous evidences
+  network$resetEvidences()
+  
+  ## recompile network to force evidences to be reset
+  algorithm = new(JunctionTreeAlgorithm)
+  algorithm$setNetwork(network)
+  algorithm$run()
+  
+  
+  
+  ## insert evidence (finding) to each of the nodes of "network" in evidences list  
+  
+  ## iterate over each evidence (finding)
+  if (length(evidences) > 0) {
+    for (evidenceIndex in 1:length(evidences)) {
+      ## find the node of this evidence
+      findingNode = .jcast(network$getNode(evidences[[evidenceIndex]][1]), "unbbayes/prs/bn/ProbabilisticNode")
+      
+      ##iterate over the states in findingNode and try to find the informed state
+      foundState = FALSE
+      for (stateIndex in 1:findingNode$getStatesSize()-1L) {
+        if (findingNode$getStateAt(stateIndex) == evidences[[evidenceIndex]][2]) {
+          foundState = TRUE
+          findingNode$addFinding(stateIndex)
+        }
+      }
+      #if no state was found for the findingNode throw an error
+      if (foundState == FALSE) {
+        stop(paste("State '", evidences[[evidenceIndex]][2],"' not found in Node '", evidences[[evidenceIndex]][1], "'.", sep = ""))
+      }
+      
     }
   }
-
-
-  
-  network = resetEvidences(net)$network
-  
-  network = setEvidence(net, evidences, propagate = TRUE)$network
-  
-  net$network = network
-  
-  query = queryNetwork(net, event)
   
   
-  #retrieve the evidences of the network
-  network = resetEvidences(net)$network
   
-  if (length(findingNodes > 0)) {
-    for (i in 1:length(findingNodes)) {
-      node = network$getNode(attributes(findingNodes[i])$names)
-      node = .jcast(node, "unbbayes/prs/bn/ProbabilisticNode")
-      node.addFinding(findingsNodes[[i]])
+  ## propagate evidence
+  network$updateEvidences()
+  
+  
+  ## find the posterior probability for the informed eventNode 
+  
+  # initialize variable
+  posteriorProb = 0.0
+  # find the event node in the network
+  eventNode = network$getNode(event[1])
+  
+  ##iterate over the states in eventNode and try to find the informed state
+  foundState = FALSE
+  for (stateIndex in 1:eventNode$getStatesSize()-1L) {
+    if (eventNode$getStateAt(stateIndex) == event[2]) {
+      foundState = TRUE
+      posteriorProb = round(.jcast(eventNode, "unbbayes/prs/bn/ProbabilisticNode")$getMarginalAt(stateIndex), 4)
     }
   }
   
-  net$network=network
+  #if no state was found for the evenNode throw an error
+  if (foundState == FALSE) {
+    stop(paste("State '",event[2],"' not found in Node '", event[1], "'.", sep=""))
+  }
   
-  
-  return(query)
+  class(posteriorProb) = "query"
+  return(posteriorProb)
 }
 
 
@@ -156,21 +184,11 @@ hasNode <- function(event, name) {
   return(FALSE)
 }
 
-getState <- function(event, name) {
-  for (i in 1:length(event)) {
-    if (event[[i]][1] == name) {
-      return(event[[i]][2])
-    }
-  }
-  return("")
-}
-
-queryNetwork <- function(net, event = c()) {
+queryNetwork <- function(net, event = c(), evidences = list()) {
   
   if (length(event) > 0 && class(event) == "character") {
-    event = list(event)
+    return(queryNetworkWithEvidences(net, event, evidences))
   }
-  
   network = net$network
   marginals = list()
   for (index in 1:network$getNodeCount()-1L) {
@@ -183,7 +201,7 @@ queryNetwork <- function(net, event = c()) {
     if (class(event) == "list") {
       #check if statesProb is included in event before adding it to marginals
       if (hasNode(event, node$getName())) {
-        marginals[[node$getName()]] = statesProb[getState(event, node$getName())]
+        marginals[[node$getName()]] = statesProb
       }
     }
     else {
@@ -223,6 +241,7 @@ createNodeInfo <- function(nodes, prob, states) {
   return(table)
 }
 
+
 print.nodeinfo <- function(info) {
   cat(sprintf("Node:           %s\n", info$node))
   cat(sprintf("Parents:        %s\n", paste(info$parents, collapse=", ")))
@@ -230,21 +249,33 @@ print.nodeinfo <- function(info) {
   cat(sprintf("States:         %s\n", paste(info$states, collapse=", ")))
 }
 
+print.network <- function(info) {
+  cat(sprintf("Compiled: %s\n", info$compiled))
+  net = info$network
+  for (i in 1:net$getNodeCount()-1L) {
+    nameNode = net$getNodeAt(i)$getName()
+    cat(sprintf("P ( %s ",nameNode))
+    if (length(info[[nameNode]]$parents) > 0 && !is.na(info[[nameNode]]$parents)) {
+      cat(sprintf("| "))
+      for (j in 1: length(info[[nameNode]]$parents)) {
+        cat(sprintf("%s ", info[[nameNode]]$parents[j]))
+      }
+    }
+    cat(sprintf(")\n"))
+  }
+}
 
 
 compileNetwork <- function(network) {
   attach( javaImport( "unbbayes.prs" ), pos = 2 , name = "java:unbbayes.prs.bn" )
   attach( javaImport( "unbbayes.prs.bn" ), pos = 3 , name = "java:unbbayes.prs.bn" )
   
+  network$compiled = TRUE
   net = network$network
   algorithm = new(JunctionTreeAlgorithm)
   algorithm$setNetwork(net)
   algorithm$run()
   network$network = net
-  
-  detach( javaImport( "unbbayes.prs" ), pos = 2 , name = "java:unbbayes.prs.bn" )
-  detach( javaImport( "unbbayes.prs.bn" ), pos = 3 , name = "java:unbbayes.prs.bn" )
-  
   return(network)
 }
 
@@ -259,6 +290,7 @@ setEvidence <- function(network, evidences, propagate = FALSE) {
   
   if (length(evidences) > 0) {
     for (evidenceIndex in 1:length(evidences)) {
+      print(evidenceIndex)
       ## find the node of this evidence
       findingNode = .jcast(net$getNode(evidences[[evidenceIndex]][1]), "unbbayes/prs/bn/ProbabilisticNode")
       ##iterate over the states in findingNode and try to find the informed state
@@ -308,9 +340,6 @@ resetEvidences <- function(network) {
   algorithm$setNetwork(net)
   algorithm$run()
   network$network = net
-  
-  detach( javaImport( "unbbayes.prs" ), pos = 2 , name = "java:unbbayes.prs.bn" )
-  detach( javaImport( "unbbayes.prs.bn" ), pos = 3 , name = "java:unbbayes.prs.bn" )
   return(network)
 }
 
@@ -344,8 +373,6 @@ addNode <- function(network, nodes, prob, states) {
   network$network = net
   net = compileNetwork(network)
   
-  detach( javaImport( "unbbayes.prs" ), pos = 2 , name = "java:unbbayes.prs.bn" )
-  detach( javaImport( "unbbayes.prs.bn" ), pos = 3 , name = "java:unbbayes.prs.bn" )
   return (net)
   
 }
@@ -363,84 +390,85 @@ removeNode <- function(network, name) {
   network$network = net
   network = compileNetwork(network)
   
-  detach( javaImport( "unbbayes.prs" ), pos = 2 , name = "java:unbbayes.prs.bn" )
-  detach( javaImport( "unbbayes.prs.bn" ), pos = 3 , name = "java:unbbayes.prs.bn" )
   return (network)
   
 }
 
-
-
-#adiciona tabela de probabilidade no no
-addcpt <- function(node) {
-  #verifica a quantidade de pais
-  numparents = length(node$parents)
-  #verifica a quantidade de estados
-  numstates = length(node$states)
-  #monta a matriz de prob        
-  return(matrix(node$prob, numstates, 2^numparents))
+#Creates a probabilistic node
+createNode <- function(node) {
+  attach( javaImport( "unbbayes.prs" ), pos = 2 , name = "java:unbbayes.prs.bn" )
+  attach( javaImport( "unbbayes.prs.bn" ), pos = 3 , name = "java:unbbayes.prs.bn" )
+  newNode = new(ProbabilisticNode)
+  newNode$setName(node$node)
+  
+  for(i in 1:length(node$states)){
+    newNode$appendState(node$states[i])
+  }
+  
+  auxCPT = newNode$getProbabilityFunction()
+  auxCPT$addVariable(newNode)
+  
+  for (i in 1:length(node$prob)) {
+    ## filling CPT of new node
+    auxCPT$addValueAt(as.integer((i-1)), .jfloat(node$prob[i]))
+  }
+  return(newNode)
 }
 
-#Recebe uma lista de nos como parametro e cria as relacoes (edge).
-createNetwork <- function(nodesList) {
+#Verifies if the node's parents exists
+parentsDefined <- function(netJava, node) {
+  parents = node$parents
+  for(j in 1:length(parents)) {
+    parentName = parents[j]
+    if (length(netJava$getNode(parentName)) == 0) {
+      return(FALSE)
+    }
+  }
+  return(TRUE)
+}
+
+
+#Receives a node list and creates a probabilistic network
+createNetwork <- function(nodeList, compile=FALSE) {
   
-  #Criar uma rede
+  nodeListAux = nodeList
+  
   attach( javaImport( "unbbayes.prs" ), pos = 2 , name = "java:unbbayes.prs.bn" )
   attach( javaImport( "unbbayes.prs.bn" ), pos = 3 , name = "java:unbbayes.prs.bn" )
   
+  #Create a probabilistic network
+  netJava = new(ProbabilisticNetwork, "Net")
   
-  #net = new(ProbabilisticNetwork)
-  net = .jcast(graph, "unbbayes/prs/bn/ProbabilisticNetwork")
-  
-  #list("nome no", c("filho1, filho2"), probabilidade(pai, filho1, filho2), "estado")
-  
-  #Iteracao para pegar os elementos da lista e criar a rede
-  for (i in 1:length(nodesList)) {
-    node = nodesList[i]
-    #tem que arrumar!!! acima
-    #Verifica se o nó está na rede
-    if (length(net$getNode(node[[i]]$node)) > 0) {     
-      node$cpt = addcpt(node)
-      net$addNode(node)
-    }
-    #verifica se o no tem pais
-    if(length(node[[i]]$parents) > 0) {
-      parents = node[[i]]$parents        
-      
-      #loop com todos os pais ligados ao no
-      for(j in 1:length(node[[i]]$parents)) {
-        parentName = parents[j]
-        #verifica se o pai do no esta na rede
-        if (length(net$getNode(parentName)) > 0) {
-          k = i + 1
-          #caso o pai do no nao esteja na lista entao havera um loop que procurara na
-          #lista de nos o pai
-          while (k < length(nodesList[]) && achou == FALSE) {
-            if(nodesList[[i+1]]$node == parentsName) {
-              nodePai = nodesList[[i+1]]
-              achou = TRUE
-            } else {
-              k =k +1
-            }
-          }            
-          nodePai$cpt = addcpt(nodePai)            
-          net$addNode(nodePai)
-          net$addEdge(new(Edge, nodePai, node))
-          #caso o pai do no esteja na rede    
-        } else {
-          nodePai = net$getNode(parentName)            
-          net$addEdge(new(Edge, nodePai, node))
-        } 
+  while(length(nodeList) > 0) {
+    node = nodeList[[1]]
+    
+    if(!is.na(nodeList[[1]]$parents) && !parentsDefined(netJava, node)) {
+      n = nodeList[[1]]
+      nodeList = nodeList[-1]
+      nodeList[[length(nodeList) + 1]] = n
+    } else {
+      nodeJava = createNode(node)
+      if(!is.na(nodeList[[1]]$parents) && parentsDefined(netJava, node)) {
+        parents = node$parents
+        for(j in 1:length(parents)) {
+          parentName = parents[j]
+          parentJava = netJava$getNode(parentName)
+          netJava$addEdge(new(Edge, parentJava, nodeJava))
+        }  
       }
+      netJava$addNode(nodeJava)
+      nodeList = nodeList[-1]
     }
+    
   }
+  result = list(network = netJava)
+  class(result)="network"
+  result$compiled = FALSE
+  for  (i in 1:length(nodeListAux)) {
+    result[[nodeListAux[[i]]$node]] = nodeListAux[[i]]
+  }
+  if (compile) {
+    result = compileNetwork(result)
+  }
+  return(result)
 } 
-  #CPT (Tabela de probabilidade condicional)
-  #1- verificar quantas probabilidades existem na lista passada
-  #2- montar matriz conforme o numero de probabilidades
-  
-  
-  
-  
-  
-  
