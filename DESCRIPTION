@@ -5,7 +5,10 @@ Version: 1.0
 Date: 2013-04-07
 Author: Rommel Novaes carvalho
 Maintainer: Rommel Novaes Carvalho <rommel.carvalho@gmail.com>
-Description: UnBBayes is a Java probabilistic framework with support to BN, ID, MSBN, OOBN, MEBN, PR-OWL, and learning algorithms. RUnBBayes provides the use of UnBBayes inside R.
+Description: UnBBayes is a Java probabilistic framework with support to BN, ID,
+    MSBN, OOBN, MEBN, PR-OWL, and learning algorithms. RUnBBayes provides the
+    use of UnBBayes inside R.
 License: GPL-3
-Depends: rJava
+Depends:
+    rJava
 SystemRequirements: Java (>= 5.0)

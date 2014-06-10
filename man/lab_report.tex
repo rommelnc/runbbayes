@@ -21,7 +21,7 @@
 
 \documentclass{article}
 
-\usepackage{mhchem} % Package for chemical equation typesetting
+\usepackage[version=3]{mhchem} % Package for chemical equation typesetting
 \usepackage{siunitx} % Provides the \SI{}{} command for typesetting SI units
 
 \usepackage{graphicx} % Required for the inclusion of images
@@ -51,10 +51,10 @@
 \begin{center}
 \begin{tabular}{l r}
 Developers: & Fernando Santos \\ % Partner names
-& ... ... \\
-& ... ... \\
-& ... ... \\
-& ... ... \\
+& Yuri Lavinas \\
+& Samuel Pala \\
+& Diego Marques \\
+& Pedro Henrique \\
 Instructor: & Rommel Carvalho % Instructor/supervisor
 \end{tabular}
 \end{center}
@@ -86,14 +86,14 @@ The RUnBBayes package provides access to some functionalities of the UnBBayes fr
 
 This section explains how to use RUnBBayes in the chest clinic example of Lauritzen and Spiegelhalter (1988) (Figure 1). As stated by Lauritzen and Spiegelhalter (1988):
 
-\begin{quotation}
-"Shortness{of{breath (dyspnoea) may be due to tuberculosis, lung cancer or
+\begin{verbatim}
+Shortness{of{breath (dyspnoea) may be due to tuberculosis, lung cancer or
 bronchitis, or none of them, or more than one of them. A recent visit to Asia
 increases the chances of tuberculosis, while smoking is known to be a risk factor
 for both lung cancer and bronchitis. The results of a single chest X{ray do not
 discriminate between lung cancer and tuberculosis, as neither does the presence
-or absence of dyspnoea."
-\end{quotation}
+or absence of dyspnoea.
+\end{verbatim}
 
 \begin{figure}[ht!]
 \centering
@@ -113,9 +113,11 @@ We can create a network by defining its nodes, together with their conditional p
 > node.s = createNodeInfo(~smoke, prob=c(5,5), states=c("yes","no"))
 > node.l = createNodeInfo(~lung|smoke, prob=c(0.1, 0.9, 0.01, 0.99), states=c("yes","no"))
 > node.b = createNodeInfo(~bronc|smoke, prob=c(0.6, 0. 4, 0.3, 0.7), states=c("yes","no"))
-> no.e = createNodeInfo(~either|lung:tub,prob=c(1,0,1,0,1,0,0,1),states=c("yes","no"))
-> node.x = createNodeInfo(~xray|either, prob=c(0.98, 0.02, 0.05, 0.95), states=c("yes","no"))
-> node.d = createNodeInfo(~dysp|bronc:either, prob=c(0.9, 0.1, 0.7, 0.3, 0.8, 0.2, 0.1, 0.9), states=c("yes","no"))
+> node.e = createNodeInfo(~either|lung:tub,prob=c(1,0,1,0,1,0,0,1),states=c("yes","no"))
+> node.x = createNodeInfo(~xray|either, prob=c(0.98, 0.02, 0.05, 0.95), 
+states=c("yes","no"))
+> node.d = createNodeInfo(~dysp|bronc:either, prob=c(0.9, 0.1, 0.7, 0.3, 0.8, 0.2, 0.1, 
+0.9), states=c("yes","no"))
 \end{verbatim}
 
 
@@ -133,8 +135,28 @@ States:         yes, no
 
 
 \subsection{Compiling the network}
+Create a probabilistic newtork, from a node list.
+Compile list of conditional probability tables and create the network
+\begin{verbatim}
+> nodeList = list(node.a, node.t, node.s, node.l, node.b, node.e, node.x, node.d)
+> network = createNetwork(nodeList, compile=TRUE)
 
+> network
+Compiled: TRUE
+P ( asia )
+P ( tub | asia )
+P ( smoke )
+P ( lung | smoke )
+P ( bronc | smoke )
+P ( either | lungtub )
+P ( xray | either )
+P ( dysp | bronceither )
 
+Setting compile as true, gives you a compiled network. Otherwise, the network won't
+be compiled by default.So, it's necessary to use the compileNetwork function as an
+option to build the junction tree.
+> netCompiled = compileNetwork(network)
+\end{verbatim}
 
 \subsection{Querying the network}
 
@@ -206,7 +228,8 @@ $T
 3. The network can return the posteriori probabilities of some event given some evidences without modifying the current network object:
 
 \begin{verbatim}
-> posterioriProb = queryNetworkWithEvidences(net, c("either", "yes"), list(c("asia", "yes"), c("smoker","no")))
+> posterioriProb = queryNetworkWithEvidences(net, c("either", "yes"), list(c("asia",
+"yes"), c("smoker","no")))
 > posterioriProb
 $either
 		yes
@@ -240,7 +263,8 @@ $dysp
 1. Nodes can be added or removed from a compiled network:
 
 \begin{verbatim}
-> net = addNode(net, ~asthma|smoker, prob = c(0.6, 0.4, 0.85, 0.15), states = c("yes", "no"))
+> net = addNode(net, ~asthma|smoker, prob = c(0.6, 0.4, 0.85, 0.15), states = c("yes",
+"no"))
 > net = removeNode(net, "asthma")
 \end{verbatim}
 
