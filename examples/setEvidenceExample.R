@@ -8,12 +8,14 @@ node.x = createNodeInfo(~xray|either, prob=c(0.98, 0.02, 0.05, 0.95), states=c("
 node.d = createNodeInfo(~dysp|bronc:either, prob=c(0.9, 0.1, 0.7, 0.3, 0.8, 0.2, 0.1, 0.9), states=c("yes", "no"))
 
 nodes = list(node.a, node.t, node.s, node.l, node.b, node.e, node.x, node.d)
-net = createNetwork(nodes, compile = T)
-evidences = list(c("asia", "yes"), c("smoke", "no"), c("broc","yes"))
-net = setEvidence(net, evidences)
-net = propagateEvidences(net)
-posterioriProb = queryNetwork(net, c("dysp", "yes"))
-posterioriProb = queryNetwork(net, c("asia", "yes"))
-posterioriProb
+net = createNetwork(nodes, compile = TRUE)
 
-queryNetwork(net)
+## A priori probability for dysp = yes
+aprioriProb = queryNetwork(net, c("dysp", "yes"))
+aprioriProb
+
+net = setEvidence(net, list(c("asia", "yes"), c("smoke", "no")))
+net = propagateEvidence(net)
+## A posteriori probability for dysp = yes given asia = yes and smoke = no
+aposterioriProb = queryNetwork(net, c("dysp", "yes"))
+aposterioriProb

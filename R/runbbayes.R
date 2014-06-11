@@ -1,92 +1,3 @@
-helloUnBBayes <- function() {
-  
-  ## Load Network
-  file = .jnew("java/io/File", "./asia.net")
-  ## .net
-  io = .jnew("unbbayes/io/NetIO")
-  ## .xml
-  #   io = .jnew("unbbayes/io/XMLBIFIO")
-  graph = io$load(file) 
-  
-  net = .jcast(graph, "unbbayes/prs/bn/ProbabilisticNetwork")
-  attach( javaImport( "unbbayes.prs" ), pos = 2 , name = "java:unbbayes.prs.bn" )
-  attach( javaImport( "unbbayes.prs.bn" ), pos = 3 , name = "java:unbbayes.prs.bn" )
-  
-  
-  
-  
-  ## adding a new node manually
-  newNode = new(ProbabilisticNode)
-  newNode$setName("K")
-  newNode$setDescription("A test node")
-  newNode$appendState("State 0")
-  newNode$appendState("State 1")
-  auxCPT = newNode$getProbabilityFunction()
-  auxCPT$addVariable(newNode)
-  net$addNode(newNode)
-  
-  ## search for "HasVisitedAsia"
-  asiaNode = .jcast(net$getNode("A"), "unbbayes/prs/bn/ProbabilisticNode")
-  
-  ## adding a new edge from "HasVisitedAsia" to new node
-  net$addEdge(new(Edge, asiaNode, newNode))
-  
-  ## filling CPT of new node
-  auxCPT$addValueAt(0L, .jfloat(0.99))
-  auxCPT$addValueAt(1L, .jfloat(0.01))
-  auxCPT$addValueAt(2L, .jfloat(0.1))
-  auxCPT$addValueAt(3L, .jfloat(0.9))
-  
-  ## prepare the algorithm to compile network
-  net = compileNetwork(net)
-  
-  ## print node's initial states
-  prior = c()
-  for (index in 1:net$getNodeCount()-1L) {
-    print(index)
-    node = net$getNodeAt(index)
-    value = paste(node$getDescription(), ": [ ", sep="", collapse="")
-    for (i in 1:node$getStatesSize()-1L) {
-      value = paste(value, node$getStateAt(i), " : ", 
-                    round(.jcast(node, "unbbayes/prs/bn/ProbabilisticNode")$getMarginalAt(i), 2),
-                    " ", sep="", collapse="")
-    }
-    value = paste(value, "]", sep="", collapse="")
-    prior = c(prior, value)
-  }
-  prior
-  
-  ## insert evidence (finding) to the 1st node of "net"
-  findingNode = .jcast(net$getNodes()$get(0L), "unbbayes/prs/bn/ProbabilisticNode")
-  findingNode$addFinding(0L) ## the 1st state is now 100%
-  
-  ## insert likelihood
-  likelihood = .jarray(.jfloat(1:newNode$getStatesSize()))
-  likelihood[[1]] = .jfloat(1)
-  likelihood[[2]] = .jfloat(0.8)
-  newNode$addLikeliHood(likelihood)
-  
-  ## propagate evidence
-  net$updateEvidences()
-  
-  ## print updated node's states
-  posterior = c()
-  for (index in 1:net$getNodeCount()-1L) {
-    node = net$getNodeAt(index)
-    value = paste(node$getDescription(), ": [ ", sep="", collapse="")
-    for (i in 1:node$getStatesSize()-1L) {
-      value = paste(value, node$getStateAt(i), " : ", 
-                    round(.jcast(node, "unbbayes/prs/bn/ProbabilisticNode")$getMarginalAt(i), 2),
-                    " ", sep="", collapse="")
-    }
-    value = paste(value, "]", sep="", collapse="")
-    posterior = c(posterior, value)
-  }
-  posterior
-  
-  return(rbind(prior, posterior))
-}
-
 #' Has node
 #' 
 #' 
@@ -94,8 +5,9 @@ helloUnBBayes <- function() {
 #' 
 #' 
 #' 
-#' @param event The state you want to know
-#' @param name The node's name
+#' @param event a list of tuples <node, state>
+#' @param name the node's name to search for
+#' @return TRUE if the name is found in the event list, FALSE otherwise.
 hasNode <- function(event, name) {
   for (i in 1:length(event)) {
     if (event[[i]][1] == name) {
@@ -110,36 +22,37 @@ hasNode <- function(event, name) {
 #' 
 #' The network can be queried to return the priori probabilities of all (or some specific) nodes.
 #' 
-#' Function runtime in core i5, 4GB of memory computer: 309.41s
+#' Function runtime in core i5, 16GB of memory computer: 0.04s [see the example below]
 #' 
 #' @param net An existing network
 #' @param event The state you want to know
-#' @param evidences Set state to a node
+#' @param evidence Set state to a node
 #' 
-#' @example examples\queryNetworkExample.R
-queryNetwork <- function(net, event = c(), evidences = list()) {
+#' @example examples/queryNetworkExample.R
+queryNetwork <- function(net, event = c(), evidence = list()) {
   if (length(event) > 0 && class(event) != "character") {
     stop("Parameter 'event' must be a tuple of strings: c(\"A\", \"yes\")")
   }
   
-  if (length(evidences) > 0 && (class(evidences) != "list" | class(evidences[[1]]) != "character")) {
-    stop("Parameter 'evidences' must be a list of tuples: list(c(\"E\", \"no\"), c(\"D\", \"yes\"))")
+  if (length(evidence) > 0 && (class(evidence) != "list" | class(evidence[[1]]) != "character")) {
+    stop("Parameter 'evidence' must be a list of tuples: list(c(\"E\", \"no\"), c(\"D\", \"yes\"))")
   }
   
   ## If there is evidence to set
-  if (length(evidences) > 0) {
-    ## reset any previous evidences
-    net = resetEvidences(net)
+  if (length(evidence) > 0) {
+    ## reset any previous evidence
+    net = resetEvidence(net)
     
     ## set evidence
-    net = setEvidence(net, evidences)
+    net = setEvidence(net, evidence)
   }
   
   ## propagate evidence
-  net = propagateEvidences(net)
+  net = propagateEvidence(net)
   
   netJava = net$network
   
+  ##TODO: IMPROVE THIS PART OF THE CODE (TRY TO CHANGE EVENT...)
   if (length(event) > 0 && class(event) == "character") {
     ## find the posterior probability for the informed eventNode 
     
@@ -197,16 +110,21 @@ queryNetwork <- function(net, event = c(), evidences = list()) {
   }
 }
 
-print.query <- function(self) {
-  for (i in 1:length(self)) {
-    cat(sprintf("$%s\n", attributes(self[i])$names))
+#' prints the result of a query in runbbayes.
+#' 
+#' @param x the result of a query in runbbayes to be printed.
+#' @param ... further arguments passed to or from other methods.
+#' 
+print.query <- function(x, ...) {
+  for (i in 1:length(x)) {
+    cat(sprintf("$%s\n", attributes(x[i])$names))
     
-    for (j in 1:length(self[[i]])) {
-      cat(sprintf("\t\t%s", attributes(self[[i]][j])$names))
+    for (j in 1:length(x[[i]])) {
+      cat(sprintf("\t\t%s", attributes(x[[i]][j])$names))
     }
     cat("\n")
-    for (j in 1:length(self[[i]])) {
-      cat(sprintf("\t\t%s", self[[i]][j]))
+    for (j in 1:length(x[[i]])) {
+      cat(sprintf("\t\t%s", x[[i]][j]))
     }
     cat("\n\n")
   }
@@ -217,13 +135,13 @@ print.query <- function(self) {
 #' 
 #' Create node's information (name, parents, probabilities and states).
 #' 
-#' Function runtime in core i5, 4GB of memory computer: 0.327s
+#' Function runtime in core i5, 16GB of memory computer: 0.04s [see the example below]
 #' 
 #' @param nodes node with its parents
 #' @param prob list of node's probabilities 
 #' @param states list of node's states
 #' 
-#' @example examples\createNodeInfoExample.R
+#' @example examples/createNodeInfoExample.R
 createNodeInfo <- function(nodes, prob, states) {
   formula = as.character(nodes)
   node = (strsplit(formula[2], " | "))[[1]][1]
@@ -235,25 +153,35 @@ createNodeInfo <- function(nodes, prob, states) {
   return(table)
 }
 
-print.nodeinfo <- function(info) {
-  cat(sprintf("Node:           %s\n", info$node))
-  cat(sprintf("Parents:        %s\n", paste(info$parents, collapse=", ")))
-  cat(sprintf("Probabilities:  %s\n", paste(info$prob, collapse=", ")))
-  cat(sprintf("States:         %s\n", paste(info$states, collapse=", ")))
+#' prints the node information in runbbayes.
+#' 
+#' @param x the node information in runbbayes to be printed.
+#' @param ... further arguments passed to or from other methods.
+#' 
+print.nodeinfo <- function(x, ...) {
+  cat(sprintf("Node:           %s\n", x$node))
+  cat(sprintf("Parents:        %s\n", paste(x$parents, collapse=", ")))
+  cat(sprintf("Probabilities:  %s\n", paste(x$prob, collapse=", ")))
+  cat(sprintf("States:         %s\n", paste(x$states, collapse=", ")))
 }
 
-print.network <- function(info) {
-  cat(sprintf("Compiled: %s\n", info$compiled))
-  netJava = info$network
+#' prints the network information in runbbayes.
+#' 
+#' @param x the network information in runbbayes to be printed.
+#' @param ... further arguments passed to or from other methods.
+#' 
+print.network <- function(x, ...) {
+  cat(sprintf("Compiled: %s\n", x$compiled))
+  netJava = x$network
 #   for (i in 1:net$getNodeCount()-1L) {
   for (i in 1:.jcall(netJava,"I","getNodeCount")-1L) {
 #     nodeName = netJava$getNodeAt(i)$getName()
-    nodeName = .jcall(.jcall(netJava,"Lunbbayes/prs/Node;","getNodeAt",as.integer(index)),"Ljava/lang/String;","getName")
+    nodeName = .jcall(.jcall(netJava,"Lunbbayes/prs/Node;","getNodeAt",as.integer(i)),"Ljava/lang/String;","getName")
     cat(sprintf("P ( %s ",nodeName))
-    if (length(info[[nodeName]]$parents) > 0 && !is.na(info[[nodeName]]$parents)) {
+    if (length(x[[nodeName]]$parents) > 0 && !is.na(x[[nodeName]]$parents)) {
       cat(sprintf("| "))
-      for (j in 1: length(info[[nodeName]]$parents)) {
-        cat(sprintf("%s ", info[[nodeName]]$parents[j]))
+      for (j in 1: length(x[[nodeName]]$parents)) {
+        cat(sprintf("%s ", x[[nodeName]]$parents[j]))
       }
     }
     cat(sprintf(")\n"))
@@ -265,11 +193,11 @@ print.network <- function(info) {
 #' 
 #' Compiles the network
 #' 
-#' Function runtime in core i5, 4GB of memory computer: 9.82s
+#' Function runtime in core i5, 16GB of memory computer: 0.02s [see the example below]
 #' 
-#' @param nework An already existing netowrk
+#' @param network An already existing netowrk
 #' 
-#' @example examples\compileNetworkExample.R
+#' @example examples/compileNetworkExample.R
 compileNetwork <- function(network) {
 #   attach( javaImport( "unbbayes.prs" ), pos = 2 , name = "java:unbbayes.prs.bn" )
 #   attach( javaImport( "unbbayes.prs.bn" ), pos = 3 , name = "java:unbbayes.prs.bn" )
@@ -289,38 +217,38 @@ compileNetwork <- function(network) {
 #' Set evidence
 #' 
 #' 
-#' Set and reset evidences in the network
+#' Set and reset evidence in the network
 #' 
 #' 
 #' 
 #' @param network An existing network
-#' @param evidences Set state to a node
+#' @param evidence Set state to a node
 #' @param propagate if set to TRUE, propagates the evidence through the network
 #' 
-#' @example examples\setEvidenceExample.R
-setEvidence <- function(network, evidences, propagate = FALSE) {
+#' @example examples/setEvidenceExample.R
+setEvidence <- function(network, evidence, propagate = FALSE) {
   if (!network$compiled) {
     network = compileNetwork(network)
   }
   
   netJava = network$network
   
-  if (class(evidences) == "character" && length(evidences) == 2) {
-    evidences = list(evidences)
+  if (class(evidence) == "character" && length(evidence) == 2) {
+    evidence = list(evidence)
   }
   
-  if (length(evidences) > 0) {
-    for (evidenceIndex in 1:length(evidences)) {
+  if (length(evidence) > 0) {
+    for (evidenceIndex in 1:length(evidence)) {
       ## find the node of this evidence
-#       findingNode = .jcast(netJava$getNode(evidences[[evidenceIndex]][1]), "unbbayes/prs/bn/ProbabilisticNode")
-      tryCatch((findingNode = .jcast(.jcall(netJava,"Lunbbayes/prs/Node;","getNode",evidences[[evidenceIndex]][1]), "unbbayes/prs/bn/ProbabilisticNode")),
-               error=function(x) paste("Node ", evidences[[evidenceIndex]][1]," not found in Node." , sep = ""))  
+#       findingNode = .jcast(netJava$getNode(evidence[[evidenceIndex]][1]), "unbbayes/prs/bn/ProbabilisticNode")
+      tryCatch((findingNode = .jcast(.jcall(netJava,"Lunbbayes/prs/Node;","getNode",evidence[[evidenceIndex]][1]), "unbbayes/prs/bn/ProbabilisticNode")),
+               error=function(x) paste("Node ", evidence[[evidenceIndex]][1]," not found in Node." , sep = ""))  
       ##iterate over the states in findingNode and try to find the informed state
       foundState = FALSE
 #       for (stateIndex in 1:findingNode$getStatesSize()-1L) {
       for (stateIndex in 1:.jcall(findingNode,"I","getStatesSize")-1L) {
-#         if (findingNode$getStateAt(stateIndex) == evidences[[evidenceIndex]][2]) {
-        if (.jcall(findingNode,"Ljava/lang/String;","getStateAt",as.integer(stateIndex)) == evidences[[evidenceIndex]][2]) {
+#         if (findingNode$getStateAt(stateIndex) == evidence[[evidenceIndex]][2]) {
+        if (.jcall(findingNode,"Ljava/lang/String;","getStateAt",as.integer(stateIndex)) == evidence[[evidenceIndex]][2]) {
           foundState = TRUE
 #           findingNode$addFinding(stateIndex)
           .jcall(findingNode,"V","addFinding",as.integer(stateIndex))
@@ -329,7 +257,7 @@ setEvidence <- function(network, evidences, propagate = FALSE) {
       }
       #if no state was found for the findingNode throw an error
       if (foundState == FALSE) {
-        stop(paste("State '", evidences[[evidenceIndex]][2],"' not found in Node '", evidences[[evidenceIndex]][1], "'.", sep = ""))
+        stop(paste("State '", evidence[[evidenceIndex]][2],"' not found in Node '", evidence[[evidenceIndex]][1], "'.", sep = ""))
       }
       
     }
@@ -338,13 +266,13 @@ setEvidence <- function(network, evidences, propagate = FALSE) {
 #   network$network = netJava
   
   if (propagate == TRUE) {
-    network = propagateEvidences(network)
+    network = propagateEvidence(network)
   }
   
   return(network)
 }
 
-#' Propagate the evidences
+#' Propagate the evidence
 #' 
 #' 
 #' Propagates the evidence through the network.
@@ -353,9 +281,9 @@ setEvidence <- function(network, evidences, propagate = FALSE) {
 #' 
 #' @param network An existing network
 #' 
-#' @example examples\setEvidenceExample.R
+#' @example examples/setEvidenceExample.R
 
-propagateEvidences <- function(network) {
+propagateEvidence <- function(network) {
 #   net$updateEvidences()
   if (!network$compiled) {
     network = compileNetwork(network)
@@ -364,25 +292,25 @@ propagateEvidences <- function(network) {
   return(network)
 }
 
-#' Reset the evidences
+#' Reset the evidence
 #' 
 #' 
 #' Resets the evidence through the network, changing to the original values.
 #' 
-#' Function runtime in core i5, 4GB of memory computer: 21.98s
+#' Function runtime in core i5, 16GB of memory computer: 0.02s [see the example below]
 #' 
 #' @param network An existing network
 #' 
-#' @example examples\resetEvidencesExample.R
-resetEvidences <- function(network) {
+#' @example examples/resetEvidenceExample.R
+resetEvidence <- function(network) {
 #   attach( javaImport( "unbbayes.prs" ), pos = 2 , name = "java:unbbayes.prs.bn" )
 #   attach( javaImport( "unbbayes.prs.bn" ), pos = 3 , name = "java:unbbayes.prs.bn" )
   
-  ## reset any previous evidences
+  ## reset any previous evidence
 #   netJava$resetEvidences()
   .jcall(network$network,"V","resetEvidences")
   
-  ## recompile network to force evidences to be reset
+  ## recompile network to force evidence to be reset
   network = compileNetwork(network)
   
   return(network)
@@ -393,14 +321,14 @@ resetEvidences <- function(network) {
 #' 
 #' Add node to an existing network.
 #' 
-#' Function runtime in core i5, 4GB of memory computer: 7.49s
+#' Function runtime in core i5, 16GB of memory computer: 0.04s [see the example below]
 #' 
 #' @param network An existing network
 #' @param node node with its parents
 #' @param prob list of node's probabilities 
 #' @param states list of node's states
 #' 
-#' @example examples\addNodeExample.R
+#' @example examples/addNodeExample.R
 addNode <- function(network, node, prob, states) {
 #   attach( javaImport( "unbbayes.prs" ), pos = 2 , name = "java:unbbayes.prs.bn" )
 #   attach( javaImport( "unbbayes.prs.bn" ), pos = 3 , name = "java:unbbayes.prs.bn" )
@@ -439,7 +367,7 @@ addNode <- function(network, node, prob, states) {
 #' @param network An existing network
 #' @param name Node's name
 #' 
-#' @example examples\removeNodeExample.R
+#' @example examples/removeNodeExample.R
 removeNode <- function(network, name) {
 #   attach( javaImport( "unbbayes.prs" ), pos = 2 , name = "java:unbbayes.prs.bn" )
 #   attach( javaImport( "unbbayes.prs.bn" ), pos = 3 , name = "java:unbbayes.prs.bn" )
@@ -466,11 +394,11 @@ removeNode <- function(network, name) {
 #' 
 #' Creates a probabilistic node
 #' 
-#' Function runtime in core i5, 4GB of memory computer: 31.27s
+#' Function runtime in core i5, 16GB of memory computer: 0.0s [see the example below]
 #' 
 #' @param node a list returned by createNodeInfo function
 #' 
-#' @example examples\createNodeExample.R
+#' @example examples/createNodeExample.R
 createNode <- function(node) {
 #   attach( javaImport( "unbbayes.prs" ), pos = 2 , name = "java:unbbayes.prs.bn" )
 #   attach( javaImport( "unbbayes.prs.bn" ), pos = 3 , name = "java:unbbayes.prs.bn" )
@@ -507,6 +435,7 @@ createNode <- function(node) {
 #' 
 #' @param netJava an existing network
 #' @param node a list with the node's information returned by createNodeInfo function
+#' @return TRUE if all parents have been define, FALSE otherwise
 parentsDefined <- function(netJava, node) {
   parents = node$parents
   for(j in 1:length(parents)) {
@@ -524,12 +453,13 @@ parentsDefined <- function(netJava, node) {
 #' 
 #' Receives a node list and creates a probabilistic network.
 #' 
-#' Function runtime in core i5, 4GB of memory computer: 1183.21s
+#' Function runtime in core i5, 16GB of memory computer: 0.08s [see the example below]
 #' 
 #' @param nodeList a list of each node returned by createNodeInfo
 #' @param compile if set to TRUE, returns a compiled network
+#' @return the created network with a boolean compile variable which defines if the network has been compiles, the node information for every node, and the corresponding network representation in UnBBayes (Java version)
 #' 
-#' @example examples\createNetworkExample.R
+#' @example examples/createNetworkExample.R
 createNetwork <- function(nodeList, compile=FALSE) {
   
 #   attach( javaImport( "unbbayes.prs" ), pos = 2 , name = "java:unbbayes.prs.bn" )
@@ -588,6 +518,9 @@ createNetwork <- function(nodeList, compile=FALSE) {
   }
 }
 
+#' Check if the main functions of runbbyes are running correctly.
+#' 
+#' @return TRUE if everything runs smoothly, FALSE otherwise.
 checkRUnBBayes <- function() {
   node.a = createNodeInfo(~asia, prob=c(0.01, 0.99), states=c("yes","no"))
   node.t = createNodeInfo(~tub|asia, prob=c(0.05, 0.95, 0.01, 0.99),states=c("yes","no"))
@@ -602,7 +535,7 @@ checkRUnBBayes <- function() {
   
   net = createNetwork(nodes)
   
-  netCompiled = compileNetwork(net)
+  net = compileNetwork(net)
   
   #checks if the net was correctly created
   if(net$asia[3]$prob[1] == 0.01) {} else {stop(return(FALSE))}
@@ -643,7 +576,7 @@ checkRUnBBayes <- function() {
   if(net$dysp[3]$prob[8] == 0.9) {} else {stop(return(FALSE))}
   
   
-  query = queryNetwork(netCompiled, c(), list(c("asia", "yes"), c("smoke", "no")))
+  query = queryNetwork(net, c(), list(c("asia", "yes"), c("smoke", "no")))
   #checks if the net was correctly created
   if(query$asia$yes == 1) {} else {stop(return(FALSE))}
   if(query$asia$no == 0) {} else {stop(return(FALSE))}
