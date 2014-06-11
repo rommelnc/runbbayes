@@ -1,45 +1,26 @@
-#' Has node
-#' 
-#' 
-#' Search an existing node
-#' 
-#' 
-#' 
-#' @param event a list of tuples <node, state>
-#' @param name the node's name to search for
-#' @return TRUE if the name is found in the event list, FALSE otherwise.
-hasNode <- function(event, name) {
-  for (i in 1:length(event)) {
-    if (event[[i]][1] == name) {
-      return(TRUE)
-    }
-  }
-  return(FALSE)
-}
-
 #' Query network
 #' 
 #' 
-#' The network can be queried to return the priori probabilities of all (or some specific) nodes.
+#' The network can be queried to return the marginal probabilities of all (or some specific) nodes.
 #' 
 #' Function runtime in core i5, 16GB of memory computer: 0.04s [see the example below]
 #' 
-#' @param net An existing network
-#' @param event The state you want to know
-#' @param evidence Set state to a node
+#' @param net an existing network
+#' @param nodesOfInterest the nodes you want to know the probability of in the form <node, state>
+#' @param evidence a list of hard evidence to be set in the form <node, state>
 #' 
 #' @example examples/queryNetworkExample.R
-queryNetwork <- function(net, event = c(), evidence = list()) {
-  if (length(event) > 0 && class(event) != "character") {
-    stop("Parameter 'event' must be a tuple of strings: c(\"A\", \"yes\")")
+queryNetwork <- function(net, nodesOfInterest = NA, evidence = NA) {
+  if (!is.na(nodesOfInterest) && class(nodesOfInterest) != "character") {
+    stop("Parameter 'nodesOfInterest' must be a tuple of strings: c(\"node1\", \"node2\")")
   }
   
-  if (length(evidence) > 0 && (class(evidence) != "list" | class(evidence[[1]]) != "character")) {
-    stop("Parameter 'evidence' must be a list of tuples: list(c(\"E\", \"no\"), c(\"D\", \"yes\"))")
+  if (!is.na(evidence) && (class(evidence) != "list" | class(evidence[[1]]) != "character")) {
+    stop("Parameter 'evidence' must be a list of tuples: list(c(\"node1\", \"state1\"), c(\"node2\", \"state2\"))")
   }
   
   ## If there is evidence to set
-  if (length(evidence) > 0) {
+  if (!is.na(evidence)) {
     ## reset any previous evidence
     net = resetEvidence(net)
     
@@ -52,62 +33,26 @@ queryNetwork <- function(net, event = c(), evidence = list()) {
   
   netJava = net$network
   
-  ##TODO: IMPROVE THIS PART OF THE CODE (TRY TO CHANGE EVENT...)
-  if (length(event) > 0 && class(event) == "character") {
-    ## find the posterior probability for the informed eventNode 
-    
-    # initialize variable
-    posteriorProb = 0.0
-    # find the event node in the network
-#     eventNode = netJava$getNode(event[1])
-    eventNode = .jcall(netJava,"Lunbbayes/prs/Node;","getNode",event[1])
-    
-    ##iterate over the states in eventNode and try to find the informed state
-    foundState = FALSE
-    #   for (stateIndex in 1:eventNode$getStatesSize()-1L) {
-    for (stateIndex in 1:.jcall(eventNode,"I","getStatesSize")-1L) {
-      #     if (eventNode$getStateAt(stateIndex) == event[2]) {
-      if (.jcall(eventNode,"Ljava/lang/String;","getStateAt",as.integer(stateIndex)) == event[2]) {
-        foundState = TRUE
-        #       posteriorProb = round((.jcast(eventNode, "unbbayes/prs/bn/ProbabilisticNode")$getMarginalAt(stateIndex)), 4)
-        posteriorProb = round(.jcall(.jcast(eventNode, "unbbayes/prs/bn/ProbabilisticNode"),"F","getMarginalAt",as.integer(stateIndex)), 4)
-        break
-      }
+  ## Return marginal probabilities
+  marginals = list()
+  for (index in 1:.jcall(netJava,"I","getNodeCount")-1L) {
+    #     node = netJava$getNodeAt(index)
+    node = .jcall(netJava,"Lunbbayes/prs/Node;","getNodeAt",as.integer(index))
+    nodeName = .jcall(node,"Ljava/lang/String;","getName")
+    ## If we have to return just the nodes of interest and the current node is not of interest, then continue to next node
+    if (!is.na(nodesOfInterest) && !(nodeName %in% nodesOfInterest)) {
+      next
     }
-    #if no state was found for the evenNode throw an error
-    if (foundState == FALSE) {
-      stop(paste("State '",event[2],"' not found in Node '", event[1], "'.", sep=""))
+    statesProb = list()
+    for (i in 1:.jcall(node,"I","getStatesSize")-1L) {
+      #       statesProb[[node$getStateAt(i)]] = round(.jcast(node, "unbbayes/prs/bn/ProbabilisticNode")$getMarginalAt(i), 4)
+      statesProb[[.jcall(node,"Ljava/lang/String;","getStateAt",as.integer(i))]] = round(.jcall(.jcast(node, "unbbayes/prs/bn/ProbabilisticNode"),"F","getMarginalAt",as.integer(i)), 4)
     }
-    
-    class(posteriorProb) = "query"
-    return(posteriorProb)
-  } else {
-    ## Return all marginals
-    marginals = list()
-    for (index in 1:.jcall(netJava,"I","getNodeCount")-1L) {
-      #     node = netJava$getNodeAt(index)
-      node = .jcall(netJava,"Lunbbayes/prs/Node;","getNodeAt",as.integer(index))
-      statesProb = list()
-      for (i in 1:.jcall(node,"I","getStatesSize")-1L) {
-        #       statesProb[[node$getStateAt(i)]] = round(.jcast(node, "unbbayes/prs/bn/ProbabilisticNode")$getMarginalAt(i), 4)
-        statesProb[[.jcall(node,"Ljava/lang/String;","getStateAt",as.integer(i))]] = round(.jcall(.jcast(node, "unbbayes/prs/bn/ProbabilisticNode"),"F","getMarginalAt",as.integer(i)), 4)
-      }
-      class(statesProb) = "query"
-      nodeName = .jcall(node,"Ljava/lang/String;","getName")
-      if (class(event) == "list") {
-        #check if statesProb is included in event before adding it to marginals
-        #       if (hasNode(event, node$getName())) {
-        if (hasNode(event, nodeName)) {
-          marginals[[nodeName]] = statesProb
-        }
-      }
-      else {
-        marginals[[nodeName]] = statesProb
-      }
-    }
-    class(marginals) = "query"
-    return(marginals)
+    class(statesProb) = "query"
+    marginals[[nodeName]] = statesProb
   }
+  class(marginals) = "query"
+  return(marginals)
 }
 
 #' prints the result of a query in runbbayes.
@@ -436,7 +381,7 @@ createNode <- function(node) {
 #' @param netJava an existing network
 #' @param node a list with the node's information returned by createNodeInfo function
 #' @return TRUE if all parents have been define, FALSE otherwise
-parentsDefined <- function(netJava, node) {
+isParentsDefined <- function(netJava, node) {
   parents = node$parents
   for(j in 1:length(parents)) {
     parentName = parents[j]
@@ -476,7 +421,7 @@ createNetwork <- function(nodeList, compile=FALSE) {
   while((length(nodeList) > 0) && (cont <= length(nodeList))) {
     node = nodeList[[1]]
     
-    if(!is.na(nodeList[[1]]$parents) && !parentsDefined(netJava, node)) {
+    if(!is.na(nodeList[[1]]$parents) && !isParentsDefined(netJava, node)) {
       n = nodeList[[1]]
       nodeList = nodeList[-1]
       nodeList[[length(nodeList) + 1]] = n
@@ -484,7 +429,7 @@ createNetwork <- function(nodeList, compile=FALSE) {
     } else {
       cont = 0
       nodeJava = createNode(node)
-      if(!is.na(nodeList[[1]]$parents) && parentsDefined(netJava, node)) {
+      if(!is.na(nodeList[[1]]$parents) && isParentsDefined(netJava, node)) {
         parents = node$parents
         for(j in 1:length(parents)) {
           parentName = parents[j]

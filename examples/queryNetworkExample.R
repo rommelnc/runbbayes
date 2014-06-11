@@ -11,9 +11,10 @@ nodes = list(node.a, node.t, node.s, node.l, node.b, node.e, node.x, node.d)
 # returning a network that is compiled
 net = createNetwork(nodes, compile=TRUE)
 
-marginals = queryNetwork(net, c(), list(c("asia", "yes"), c("tub", "no")))
+## Return all the marginal probabilities given asia = yes and tub = no
+marginals = queryNetwork(net, evidence = list(c("asia", "yes"), c("tub", "no")))
 marginals
 
-## Return the probability that dysp is yes, i.e., P(dysp = yes)
-prob = queryNetwork(net, c("dysp", "yes"), list(c("asia", "yes"), c("tub", "no")))
-prob
+## Return the marginal probabilities of nodes dysp and bronc
+marginalsOfInterest = queryNetwork(net, c("dysp", "bronc"), list(c("asia", "yes"), c("tub", "no")))
+marginalsOfInterest
