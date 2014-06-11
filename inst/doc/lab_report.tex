@@ -84,28 +84,23 @@ The RUnBBayes package provides access to some functionalities of the UnBBayes fr
 
 \section{The chest clinic example}
 
-This section explains how to use RUnBBayes in the chest clinic example of Lauritzen and Spiegelhalter (1988) (Figure 1). As stated by Lauritzen and Spiegelhalter (1988):
+This section explains how to use RUnBBayes in the chest clinic example of Lauritzen and Spiegelhalter (1988) (Figure~\ref{fig:asia}). As stated by Lauritzen and Spiegelhalter (1988):
 
-\begin{verbatim}
-Shortness{of{breath (dyspnoea) may be due to tuberculosis, lung cancer or
-bronchitis, or none of them, or more than one of them. A recent visit to Asia
-increases the chances of tuberculosis, while smoking is known to be a risk factor
-for both lung cancer and bronchitis. The results of a single chest X{ray do not
-discriminate between lung cancer and tuberculosis, as neither does the presence
-or absence of dyspnoea.
-\end{verbatim}
+\begin{quotation}
+Shortness-of-breath (dyspnoea) may be due to tuberculosis, lung cancer or bronchitis, or none of them, or more than one of them. A recent visit to Asia increases the chances of tuberculosis, while smoking is known to be a risk factor for both lung cancer and bronchitis. The results of a single chest X-ray do not discriminate between lung cancer and tuberculosis, as neither does the presence or absence of dyspnoea.
+\end{quotation}
 
 \begin{figure}[ht!]
 \centering
 \includegraphics[width=90mm]{chest-clinic.png}
 \caption{Chest clinic example}
-\label{overflow}
+\label{fig:asia}
 \end{figure}
 
 
 \subsection{Defining the network nodes}
 
-We can create a network by defining its nodes, together with their conditional probabilities and their states. 
+We can create a network by defining its nodes, together with their conditional probabilities and their state. 
 
 \begin{verbatim}
 > node.a = createNodeInfo(~asia, prob=c(0.01, 0.99), states=c("yes","no"))

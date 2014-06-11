@@ -1,0 +1,193 @@
+\documentclass[a4paper]{article}
+
+\usepackage{a4wide}
+\usepackage{listings}
+\usepackage{inconsolata}
+
+%\VignetteIndexEntry{Using RUnBBayes}
+
+%----------------------------------------------------------------------------------------
+%  DOCUMENT INFORMATION
+%----------------------------------------------------------------------------------------
+
+\title{Bayesian networks in R with RUnBBayes package} % Title
+
+%\author{John \textsc{Smith}} % Author name
+
+\date{\today} % Date for the report
+
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+
+\maketitle % Insert the title, author and date
+
+\begin{center}
+\begin{tabular}{l r}
+Developers: & Fernando Santos \\ % Partner names
+& Yuri Lavinas \\
+& Samuel Pala \\
+& Diego Marques \\
+& Pedro Henrique \\
+Instructor: & Rommel Carvalho % Instructor/supervisor
+\end{tabular}
+\end{center}
+
+% If you wish to include an abstract, uncomment the lines below
+% \begin{abstract}
+% Abstract text
+% \end{abstract}
+
+%----------------------------------------------------------------------------------------
+%  SECTION 1
+%----------------------------------------------------------------------------------------
+
+\section{Introduction}
+
+The RUnBBayes package provides access to some functionalities of the UnBBayes framework. UnBBayes (\url{http://unbbayes.sourceforge.net/}) is an open source software for modeling, learning and reasoning upon probabilistic networks developed in Java. Making use of rJava, this package provides an interface to implement probabilistic networks within R.
+
+% If you have more than one objective, uncomment the below:
+%\begin{description}
+%\item[First Objective] \hfill \\
+%Objective 1 text
+%\item[Second Objective] \hfill \\
+%Objective 2 text
+%\end{description}
+
+
+
+\section{The chest clinic example}
+
+This section explains how to use RUnBBayes in the chest clinic example of Lauritzen and Spiegelhalter (1988) (Figure~\ref{fig:asia}). As stated by Lauritzen and Spiegelhalter (1988):
+
+\begin{quotation}
+Shortness-of-breath (dyspnoea) may be due to tuberculosis, lung cancer or bronchitis, or none of them, or more than one of them. A recent visit to Asia increases the chances of tuberculosis, while smoking is known to be a risk factor for both lung cancer and bronchitis. The results of a single chest X-ray do not discriminate between lung cancer and tuberculosis, as neither does the presence or absence of dyspnoea.
+\end{quotation}
+
+\begin{figure}[ht!]
+\centering
+\includegraphics[width=90mm]{chest-clinic.png}
+\caption{Chest clinic example}
+\label{fig:asia}
+\end{figure}
+
+
+\subsection{Defining the network nodes}
+
+We can create a network by defining its nodes, together with their conditional probabilities and their state. 
+
+<<nodeInfo, keep.source=TRUE>>=
+library(runbbayes)
+
+node.a = createNodeInfo(~asia, prob=c(0.01, 0.99), 
+                        states=c("yes","no"))
+node.t = createNodeInfo(~tub|asia, prob=c(0.05, 0.95, 0.01, 0.99),
+                        states=c("yes","no"))
+node.s = createNodeInfo(~smoke, prob=c(0.5,0.5), 
+                        states=c("yes","no"))
+node.l = createNodeInfo(~lung|smoke, prob=c(0.1, 0.9, 0.01, 0.99), 
+                        states=c("yes","no"))
+node.b = createNodeInfo(~bronc|smoke, prob=c(0.6, 0.4, 0.3, 0.7), 
+                        states=c("yes","no"))
+node.e = createNodeInfo(~either|lung:tub,prob=c(1,0,1,0,1,0,0,1),
+                        states=c("yes","no"))
+node.x = createNodeInfo(~xray|either, prob=c(0.98, 0.02, 0.05, 0.95), 
+                        states=c("yes","no"))
+node.d = createNodeInfo(~dysp|bronc:either, prob=c(0.9, 0.1, 0.7, 0.3, 0.8, 0.2, 0.1, 0.9), 
+                        states=c("yes", "no"))
+@
+
+Each of these calls will return a "nodeinfo" structure.
+
+<<printNodeInfo, keep.source=TRUE>>=
+node.a = createNodeInfo(~asia, prob=c(0.01, 0.99), 
+                        states=c("yes","no"))
+node.a
+@
+
+\subsection{Compiling the network}
+
+Create a probabilistic network, from a node list.
+Compile list of conditional probability tables and create the network.
+
+<<createNetwork, keep.source=TRUE>>=
+nodeList = list(node.a, node.t, node.s, node.l, node.b, node.e, node.x, node.d)
+network = createNetwork(nodeList, compile=TRUE)
+network
+@
+
+Setting compile as true, gives you a compiled network. Otherwise, the network won't
+be compiled by default.So, it's necessary to use the compileNetwork function as an
+option to build the junction tree.
+
+<<compileNetwork, keep.source=TRUE>>=
+netCompiled = compileNetwork(network)
+netCompiled
+@
+
+\subsection{Querying the network}
+
+1. The network can be queried to return the priori probabilities of all nodes:
+
+<<queryNetwork, keep.source=TRUE>>=
+prioriProb = queryNetwork(network)
+prioriProb
+
+prioriProb$xray
+
+prioriProb$xray$yes
+@
+
+
+2. The network can be queried to return the priori probabilities of some specific nodes:
+
+<<queryNetworkNodes, keep.source=TRUE>>=
+prioriProb = queryNetwork(network, c("bronc", "dysp"))
+prioriProb
+@
+
+3. The network can return the posteriori probabilities of some event given some evidences without modifying the current network object:
+
+<<queryNetworkEvidence, keep.source=TRUE>>=
+posterioriProb = queryNetwork(network, c("either"), list(c("asia",
+"yes"), c("smoke","no")))
+posterioriProb
+@
+
+4. Evidences can be set and reset in the network:
+
+<<setEvidence, keep.source=TRUE>>=
+network = setEvidence(network, list(c("asia", "yes"), c("smoke", "no")))
+network = propagateEvidence(network)
+posterioriProb = queryNetwork(network, c("dysp", "yes"))
+posterioriProb
+
+network = resetEvidence(network)
+prioriProb = queryNetwork(network, c("dysp", "yes"))
+prioriProb
+@
+
+
+\subsection{Updating the network}
+
+1. Nodes can be added or removed from a compiled network:
+
+<<editNetwork, keep.source=TRUE>>=
+network = addNode(network, ~asthma|smoke, prob = c(0.6, 0.4, 0.85, 0.15), states = c("yes",
+"no"))
+network = removeNode(network, "asthma")
+@
+
+
+
+%----------------------------------------------------------------------------------------
+%	BIBLIOGRAPHY
+%----------------------------------------------------------------------------------------
+
+\bibliographystyle{unsrt}
+
+\bibliography{sample}
+
+%----------------------------------------------------------------------------------------
+
+
+\end{document}
