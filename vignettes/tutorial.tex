@@ -1,41 +1,14 @@
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% University/School Laboratory Report
-% LaTeX Template
-% Version 3.0 (4/2/13)
-%
-% This template has been downloaded from:
-% http://www.LaTeXTemplates.com
-%
-% Original author:
-% Linux and Unix Users Group at Virginia Tech Wiki 
-% (https://vtluug.org/wiki/Example_LaTeX_chem_lab_report)
-%
-% License:
-% CC BY-NC-SA 3.0 (http://creativecommons.org/licenses/by-nc-sa/3.0/)
-%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\documentclass[a4paper]{article}
+
+\usepackage{a4wide}
+\usepackage{listings}
+\usepackage{inconsolata}
+\usepackage{url}
+
+%\VignetteIndexEntry{Using RUnBBayes}
 
 %----------------------------------------------------------------------------------------
-%	PACKAGES AND DOCUMENT CONFIGURATIONS
-%----------------------------------------------------------------------------------------
-
-\documentclass{article}
-
-\usepackage[version=3]{mhchem} % Package for chemical equation typesetting
-\usepackage{siunitx} % Provides the \SI{}{} command for typesetting SI units
-
-\usepackage{graphicx} % Required for the inclusion of images
-
-\usepackage{hyperref}
-
-\setlength\parindent{0pt} % Removes all indentation from paragraphs
-
-\renewcommand{\labelenumi}{\alph{enumi}.} % Make numbering in the enumerate environment by letter rather than number (e.g. section 6)
-
-%\usepackage{times} % Uncomment to use the Times New Roman font
-
-%----------------------------------------------------------------------------------------
-%	DOCUMENT INFORMATION
+%  DOCUMENT INFORMATION
 %----------------------------------------------------------------------------------------
 
 \title{Bayesian networks in R with RUnBBayes package} % Title
@@ -44,7 +17,9 @@
 
 \date{\today} % Date for the report
 
+\usepackage{Sweave}
 \begin{document}
+\input{tutorial-concordance}
 
 \maketitle % Insert the title, author and date
 
@@ -65,12 +40,12 @@ Instructor: & Rommel Carvalho % Instructor/supervisor
 % \end{abstract}
 
 %----------------------------------------------------------------------------------------
-%	SECTION 1
+%  SECTION 1
 %----------------------------------------------------------------------------------------
 
 \section{Introduction}
 
-The RUnBBayes package provides access to some functionalities of the UnBBayes framework. UnBBayes (\url {http://unbbayes.sourceforge.net/}) is an open source software for modeling, learning and reasoning upon probabilistic networks developed in Java. Making use of rJava, this package provides an interface to implement probabilistic networks within R.
+The RUnBBayes package provides access to some functionalities of the UnBBayes framework. UnBBayes (\url{http://unbbayes.sourceforge.net/}) is an open source software for modeling, learning and reasoning upon probabilistic networks developed in Java. Making use of rJava, this package provides an interface to implement probabilistic networks within R.
 
 % If you have more than one objective, uncomment the below:
 %\begin{description}
@@ -102,79 +77,107 @@ Shortness-of-breath (dyspnoea) may be due to tuberculosis, lung cancer or bronch
 
 We can create a network by defining its nodes, together with their conditional probabilities and their state. 
 
-\begin{verbatim}
-> node.a = createNodeInfo(~asia, prob=c(0.01, 0.99), states=c("yes","no"))
-> node.t = createNodeInfo(~tub|asia, prob=c(0.05, 0.95, 0.01, 0.99),states=c("yes","no"))
-> node.s = createNodeInfo(~smoke, prob=c(5,5), states=c("yes","no"))
-> node.l = createNodeInfo(~lung|smoke, prob=c(0.1, 0.9, 0.01, 0.99), states=c("yes","no"))
-> node.b = createNodeInfo(~bronc|smoke, prob=c(0.6, 0. 4, 0.3, 0.7), states=c("yes","no"))
-> node.e = createNodeInfo(~either|lung:tub,prob=c(1,0,1,0,1,0,0,1),states=c("yes","no"))
+\begin{Schunk}
+\begin{Sinput}
+> library(runbbayes)
+> node.a = createNodeInfo(~asia, prob=c(0.01, 0.99), 
++                         states=c("yes","no"))
+> node.t = createNodeInfo(~tub|asia, prob=c(0.05, 0.95, 0.01, 0.99),
++                         states=c("yes","no"))
+> node.s = createNodeInfo(~smoke, prob=c(0.5,0.5), 
++                         states=c("yes","no"))
+> node.l = createNodeInfo(~lung|smoke, prob=c(0.1, 0.9, 0.01, 0.99), 
++                         states=c("yes","no"))
+> node.b = createNodeInfo(~bronc|smoke, prob=c(0.6, 0.4, 0.3, 0.7), 
++                         states=c("yes","no"))
+> node.e = createNodeInfo(~either|lung:tub,prob=c(1,0,1,0,1,0,0,1),
++                         states=c("yes","no"))
 > node.x = createNodeInfo(~xray|either, prob=c(0.98, 0.02, 0.05, 0.95), 
-states=c("yes","no"))
-> node.d = createNodeInfo(~dysp|bronc:either, prob=c(0.9, 0.1, 0.7, 0.3, 0.8, 0.2, 0.1, 
-0.9), states=c("yes","no"))
-\end{verbatim}
-
++                         states=c("yes","no"))
+> node.d = createNodeInfo(~dysp|bronc:either, prob=c(0.9, 0.1, 0.7, 0.3, 0.8, 0.2, 0.1, 0.9), 
++                         states=c("yes", "no"))
+\end{Sinput}
+\end{Schunk}
 
 Each of these calls will return a "nodeinfo" structure.
 
-\begin{verbatim}
-> node.a = createNodeInfo(~asia, prob=c(0.01, 0.99), states=c("yes","no"))
+\begin{Schunk}
+\begin{Sinput}
+> node.a = createNodeInfo(~asia, prob=c(0.01, 0.99), 
++                         states=c("yes","no"))
 > node.a
+\end{Sinput}
+\begin{Soutput}
 Node:           asia
 Parents:        NA
 Probabilities:  0.01, 0.99
 States:         yes, no
-\end{verbatim}
-
-
+\end{Soutput}
+\end{Schunk}
 
 \subsection{Compiling the network}
-Create a probabilistic newtork, from a node list.
-Compile list of conditional probability tables and create the network
-\begin{verbatim}
+
+Create a probabilistic network, from a node list.
+Compile list of conditional probability tables and create the network.
+
+\begin{Schunk}
+\begin{Sinput}
 > nodeList = list(node.a, node.t, node.s, node.l, node.b, node.e, node.x, node.d)
 > network = createNetwork(nodeList, compile=TRUE)
-
 > network
+\end{Sinput}
+\begin{Soutput}
 Compiled: TRUE
 P ( asia )
 P ( tub | asia )
 P ( smoke )
 P ( lung | smoke )
 P ( bronc | smoke )
-P ( either | lungtub )
+P ( either | lung tub )
 P ( xray | either )
-P ( dysp | bronceither )
+P ( dysp | bronc either )
+\end{Soutput}
+\end{Schunk}
 
 Setting compile as true, gives you a compiled network. Otherwise, the network won't
 be compiled by default.So, it's necessary to use the compileNetwork function as an
 option to build the junction tree.
+
+\begin{Schunk}
+\begin{Sinput}
 > netCompiled = compileNetwork(network)
-\end{verbatim}
+> netCompiled
+\end{Sinput}
+\begin{Soutput}
+Compiled: TRUE
+P ( asia )
+P ( tub | asia )
+P ( smoke )
+P ( lung | smoke )
+P ( bronc | smoke )
+P ( either | lung tub )
+P ( xray | either )
+P ( dysp | bronc either )
+\end{Soutput}
+\end{Schunk}
 
 \subsection{Querying the network}
 
 1. The network can be queried to return the priori probabilities of all nodes:
 
-\begin{verbatim}
-> prioriProb = queryNetwork(net)
+\begin{Schunk}
+\begin{Sinput}
+> prioriProb = queryNetwork(network)
 > prioriProb
-$xray
-		yes		no
-		0.11		0.89
-
-$bronc
-		yes		no
-		0.45		0.55
-
-$dysp
-		yes		no
-		0.44		0.56
-
+\end{Sinput}
+\begin{Soutput}
 $asia
 		yes		no
 		0.01		0.99
+
+$tub
+		yes		no
+		0.0104		0.9896
 
 $smoke
 		yes		no
@@ -182,93 +185,116 @@ $smoke
 
 $lung
 		yes		no
-		0.06		0.94
+		0.055		0.945
 
-$tub
+$bronc
 		yes		no
-		0.01		0.99
+		0.45		0.55
 
 $either
 		yes		no
-		0.06		0.94
+		0.0648		0.9352
+
+$xray
+		yes		no
+		0.1103		0.8897
+
+$dysp
+		yes		no
+		0.436		0.564
+\end{Soutput}
+\begin{Sinput}
 > prioriProb$xray
+\end{Sinput}
+\begin{Soutput}
 $yes
 
-		0.11
+		0.1103
 
 $no
 
-		0.89
-
+		0.8897
+\end{Soutput}
+\begin{Sinput}
 > prioriProb$xray$yes
-[1] 0.11
-\end{verbatim}
+\end{Sinput}
+\begin{Soutput}
+[1] 0.1103
+\end{Soutput}
+\end{Schunk}
 
 
 2. The network can be queried to return the priori probabilities of some specific nodes:
 
-\begin{verbatim}
-> prioriProb = queryNetwork(net, list(c("T", "yes"), c("L", "no")))
+\begin{Schunk}
+\begin{Sinput}
+> prioriProb = queryNetwork(network, c("bronc", "dysp"))
 > prioriProb
-$L
-		no
-		0.94
+\end{Sinput}
+\begin{Soutput}
+$bronc
+		yes		no
+		0.45		0.55
 
-$T
-		yes
-		0.01
-\end{verbatim}
-
+$dysp
+		yes		no
+		0.436		0.564
+\end{Soutput}
+\end{Schunk}
 
 3. The network can return the posteriori probabilities of some event given some evidences without modifying the current network object:
 
-\begin{verbatim}
-> posterioriProb = queryNetworkWithEvidences(net, c("either", "yes"), list(c("asia",
-"yes"), c("smoker","no")))
+\begin{Schunk}
+\begin{Sinput}
+> posterioriProb = queryNetwork(network, c("either"), list(c("asia",
++ "yes"), c("smoke","no")))
 > posterioriProb
+\end{Sinput}
+\begin{Soutput}
 $either
-		yes
-		0.06
-\end{verbatim}
-
+		yes		no
+		0.0595		0.9405
+\end{Soutput}
+\end{Schunk}
 
 4. Evidences can be set and reset in the network:
 
-\begin{verbatim}
-> net = setEvidence(net, list(c("asia", "yes"), c("smoker", "no")))
-> net = propagateEvidences(net)
-> posterioriProb = queryNetwork(net, c("dysp", "yes"))
+\begin{Schunk}
+\begin{Sinput}
+> network = setEvidence(network, list(c("asia", "yes"), c("smoke", "no")))
+> network = propagateEvidence(network)
+> posterioriProb = queryNetwork(network, c("dysp", "yes"))
 > posterioriProb
+\end{Sinput}
+\begin{Soutput}
 $dysp
-		yes
-		0.34
-
-> net = resetEvidences(net)
-> prioriProb = queryNetwork(net, c("dysp", "yes"))
+		yes		no
+		0.3368		0.6632
+\end{Soutput}
+\begin{Sinput}
+> network = resetEvidence(network)
+> prioriProb = queryNetwork(network, c("dysp", "yes"))
 > prioriProb
+\end{Sinput}
+\begin{Soutput}
 $dysp
-		yes
-		0.44
-
-\end{verbatim}
+		yes		no
+		0.436		0.564
+\end{Soutput}
+\end{Schunk}
 
 
 \subsection{Updating the network}
 
 1. Nodes can be added or removed from a compiled network:
 
-\begin{verbatim}
-> net = addNode(net, ~asthma|smoker, prob = c(0.6, 0.4, 0.85, 0.15), states = c("yes",
-"no"))
-> net = removeNode(net, "asthma")
-\end{verbatim}
-
-
-
-
-
-
-
+\begin{Schunk}
+\begin{Sinput}
+> network = addNode(network, ~asthma|smoke, prob = c(0.6, 0.4, 0.85, 0.15), states = c("yes",
++ "no"))
+> network = removeNode(network, "asthma")
+\end{Sinput}
+\end{Schunk}
 
 
 

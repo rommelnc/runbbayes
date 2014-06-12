@@ -3,6 +3,7 @@
 \usepackage{a4wide}
 \usepackage{listings}
 \usepackage{inconsolata}
+\usepackage{url}
 
 %\VignetteIndexEntry{Using RUnBBayes}
 
@@ -178,14 +179,12 @@ network = removeNode(network, "asthma")
 @
 
 
-
 %----------------------------------------------------------------------------------------
 %	BIBLIOGRAPHY
 %----------------------------------------------------------------------------------------
 
-\bibliographystyle{unsrt}
-
-\bibliography{sample}
+% \bibliographystyle{plain}
+% \bibliography{sample.bib}
 
 %----------------------------------------------------------------------------------------
 

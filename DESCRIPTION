@@ -12,8 +12,3 @@ License: GPL-3
 Depends:
     rJava
 SystemRequirements: Java (>= 5.0)
-Collate:
-    'helloUnBBayes.R'
-    'onLoad.R'
-    'runbbayes.R'
-    'testSetUp.R'
